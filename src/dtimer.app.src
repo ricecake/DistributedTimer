@@ -1,0 +1,14 @@
+%% -*- erlang -*-
+{application, dtimer,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  riak_core
+                 ]},
+  {mod, { dtimer_app, []}},
+  {env, []}
+ ]}.
