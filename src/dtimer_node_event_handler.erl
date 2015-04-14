@@ -25,7 +25,8 @@
 init([]) ->
     {ok, #state{}}.
 
-handle_event({service_update, _Services}, State) ->
+handle_event({service_update, Services}, State) ->
+	io:format("Service Update: ~p~n", [Services]),
     {ok, State}.
 
 handle_call(_Event, State) ->
