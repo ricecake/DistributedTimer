@@ -28,6 +28,7 @@ start_vnode(I) ->
     riak_core_vnode_master:get_vnode_pid(I, ?MODULE).
 
 init([Partition]) ->
+	sqlite3:open(),
     {ok, #state { partition=Partition }}.
 
 %% Sample command: respond to a ping
