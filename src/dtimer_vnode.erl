@@ -21,20 +21,24 @@
              start_vnode/1
              ]).
 
--record(state, {partition}).
+-record(state, {partition, db, file}).
 
 %% API
 start_vnode(I) ->
     riak_core_vnode_master:get_vnode_pid(I, ?MODULE).
 
 init([Partition]) ->
-	{ok, Pid} = sqlite3:open(anonymous, [{file, Partition}]),
-    {ok, #state { partition=Partition }}.
+	PartitionString = lists:flatten(io_lib:fwrite("~31.36.0B", [Partition])),
+	[First | _ ] = PartitionString,
+	FileName = lists:flatten(["data/dtimer/", First, "/", PartitionString, ".sqlite"]),
+	ok = filelib:ensure_dir(FileName),
+	{ok, Pid} = sqlite3:open(anonymous, [{file, FileName }]),
+	{ok, #state { partition=Partition, db=Pid, file=FileName }}.
 
 %% Sample command: respond to a ping
 handle_command(ping, _Sender, State) ->
 	{reply, {pong, State#state.partition}, State};
-handle_comman(add_timer, _Sender, State) ->
+handle_command(add_timer, _Sender, State) ->
 	{reply, {added, State#state.partition}, State};
 handle_command(Message, _Sender, State) ->
     ?PRINT({unhandled_command, Message}),
