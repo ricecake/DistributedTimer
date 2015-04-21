@@ -5,7 +5,9 @@ deps
 *.plt
 erl_crash.dump
 ebin
-rel/example_project
+rel/dtimer
+rel/vars/
+dev/
 .concrete/DEV_MODE
 .rebar
 *~

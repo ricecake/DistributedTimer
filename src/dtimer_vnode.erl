@@ -28,9 +28,7 @@ start_vnode(I) ->
     riak_core_vnode_master:get_vnode_pid(I, ?MODULE).
 
 init([Partition]) ->
-	PartitionString = lists:flatten(io_lib:fwrite("~31.36.0B", [Partition])),
-	[First | _ ] = PartitionString,
-	FileName = lists:flatten(["data/dtimer/", First, "/", PartitionString, ".sqlite"]),
+	FileName = filename:join(["dtimer_data", integer_to_list(Partition), "main.sqlite"]),
 	ok = filelib:ensure_dir(FileName),
 	{ok, Pid} = sqlite3:open(anonymous, [{file, FileName }]),
 	{ok, #state { partition=Partition, db=Pid, file=FileName }}.
@@ -66,7 +64,9 @@ is_empty(State) ->
     {true, State}.
 
 delete(State) ->
-    {ok, State}.
+	ok = file:delete(State#state.file),
+	ok = file:delete_dir(filename:join(["dtimer_data", integer_to_list(State#state.partition)])),
+	{ok, State}.
 
 handle_coverage(_Req, _KeySpaces, _Sender, State) ->
     {stop, not_implemented, State}.
@@ -74,5 +74,8 @@ handle_coverage(_Req, _KeySpaces, _Sender, State) ->
 handle_exit(_Pid, _Reason, State) ->
     {noreply, State}.
 
-terminate(_Reason, _State) ->
-    ok.
+terminate(normal, State) ->
+	file:delete(State#state.file);
+terminate(Reason, _State) ->
+	?PRINT(Reason),
+	ok.
