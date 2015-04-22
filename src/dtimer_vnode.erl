@@ -15,7 +15,8 @@
          handle_handoff_data/2,
          encode_handoff_item/2,
          handle_coverage/4,
-         handle_exit/3]).
+         handle_exit/3,
+	 handle_info/2]).
 
 -ignore_xref([
              start_vnode/1
@@ -31,16 +32,38 @@ init([Partition]) ->
 	FileName = filename:join(["dtimer_data", integer_to_list(Partition), "main.sqlite"]),
 	ok = filelib:ensure_dir(FileName),
 	{ok, Pid} = sqlite3:open(anonymous, [{file, FileName }]),
+	ok = sqlite3:create_table(Pid, timer, [
+		{id, integer, [{primary_key, [asc, autoincrement]}]},
+		{name, blob, [not_null]}, 
+		{interval, integer, [not_null]}
+	]),
 	{ok, #state { partition=Partition, db=Pid, file=FileName }}.
 
 %% Sample command: respond to a ping
 handle_command(ping, _Sender, State) ->
 	{reply, {pong, State#state.partition}, State};
-handle_command(add_timer, _Sender, State) ->
+handle_command({add_timer, Name, Interval}, _Sender, #state{db = Db} = State) ->
+	{rowid, Id} = sqlite3:write(Db, timer, [{name, Name}, {interval, Interval}]),
+	erlang:send_after(Interval, self(), {tick, {Id, Name}}),
 	{reply, {added, State#state.partition}, State};
 handle_command(Message, _Sender, State) ->
     ?PRINT({unhandled_command, Message}),
     {noreply, State}.
+
+handle_info({tick, {Id, Name}}, #state{db = Db, partition=Partition } = State) ->
+	?PRINT({ticked, Id, Name}),
+	[{columns, _}, {rows, [{Id, Name, Interval}]}] = sqlite3:read(Db, timer, {id, Id}),
+	erlang:send_after(Interval, self(), {tick, {Id, Name}}),
+	{ok, Primary} = dtimer:find_primary({timer, Name}),
+	ThisVnode = {Partition, node()},
+	case Primary of
+		ThisVnode  -> ?PRINT({primary, Name});
+		OtherVnode -> ?PRINT({secondary, Name, OtherVnode})
+	end,
+	{ok, State};
+handle_info(Info, State) ->
+	?PRINT({unhandled_message, Info}),
+	{ok, State}.
 
 handle_handoff_command(_Message, _Sender, State) ->
     {noreply, State}.
