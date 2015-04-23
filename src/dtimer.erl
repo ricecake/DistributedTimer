@@ -30,7 +30,7 @@ replicated(Value, Key) ->
 	
 	{ok, ReqId} = dtimer_op_fsm:op(N, W, Value, Key),
 	receive 
-		{ReqID, Val} -> {ok, Val}
+		{ReqId, Val} -> {ok, Val}
 	after TimeOut -> {error, timeout}
 	end.
 
