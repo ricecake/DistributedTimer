@@ -20,8 +20,20 @@ ping() ->
 	riak_core_vnode_master:sync_spawn_command(IndexNode, ping, dtimer_vnode_master).
 
 add_timer(Name, Interval) when is_binary(Name), is_integer(Interval), Interval > 0 ->
-	{ok, IndexNode} = find_primary({<<"timer">>, Name}),
-	riak_core_vnode_master:sync_spawn_command(IndexNode, {add_timer, Name, Interval}, dtimer_vnode_master).
+	replicated({<<"timer">>, Name}, {add_timer, Name, Interval}).
+
+replicated(Value) -> replicated(Value, Value).
+replicated(Value, Key) ->
+	N = 2,
+	W = 2,
+	TimeOut = 10000,
+	
+	{ok, ReqId} = dtimer_op_fsm:op(N, W, Value, Key),
+	receive 
+		{ReqID, Val} -> {ok, Val}
+	after TimeOut -> {error, timeout}
+	end.
+
 
 find_primary(Key) ->
     DocIdx = riak_core_util:chash_key(Key),
