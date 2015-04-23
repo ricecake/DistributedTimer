@@ -31,7 +31,7 @@ start_vnode(I) ->
 init([Partition]) ->
 	FileName = filename:join(["dtimer_data", integer_to_list(Partition), "main.sqlite"]),
 	ok = filelib:ensure_dir(FileName),
-	ok = file:delete(FileName),
+	file:delete(FileName),
 	{ok, Pid} = sqlite3:open(anonymous, [{file, FileName }]),
 	ok = sqlite3:create_table(Pid, timer, [
 		{id, integer, [{primary_key, [asc, autoincrement]}]},
@@ -90,7 +90,7 @@ is_empty(State) ->
 
 delete(State) ->
 	ok = file:delete(State#state.file),
-	ok = file:delete_dir(filename:join(["dtimer_data", integer_to_list(State#state.partition)])),
+	ok = file:del_dir(filename:join(["dtimer_data", integer_to_list(State#state.partition)])),
 	{ok, State}.
 
 handle_coverage(_Req, _KeySpaces, _Sender, State) ->
