@@ -20,7 +20,7 @@ ping() ->
 	riak_core_vnode_master:sync_spawn_command(IndexNode, ping, dtimer_vnode_master).
 
 add_timer(Name, Interval) when is_binary(Name), is_integer(Interval), Interval > 0 ->
-	replicated({<<"timer">>, Name}, {add_timer, Name, Interval}).
+	replicated({add_timer, Name, Interval}, {<<"timer">>, Name}).
 
 replicated(Value) -> replicated(Value, Value).
 replicated(Value, Key) ->

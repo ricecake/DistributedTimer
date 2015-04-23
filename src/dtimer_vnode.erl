@@ -43,11 +43,11 @@ init([Partition]) ->
 %% Sample command: respond to a ping
 handle_command(ping, _Sender, State) ->
 	{reply, {pong, State#state.partition}, State};
-handle_command({add_timer, Name, Interval}, _Sender, #state{db = Db} = State) ->
+handle_command({RefId, {add_timer, Name, Interval}}, _Sender, #state{db = Db} = State) ->
 	{rowid, Id} = sqlite3:write(Db, timer, [{name, Name}, {interval, Interval}]),
 	WaitTime = random:uniform(Interval),
 	erlang:send_after(WaitTime, self(), {tick, {Id, Name}}),
-	{reply, {added, State#state.partition}, State};
+	{reply, {RefId, {added, State#state.partition}}, State};
 handle_command(Message, _Sender, State) ->
     ?PRINT({unhandled_command, Message}),
     {noreply, State}.
