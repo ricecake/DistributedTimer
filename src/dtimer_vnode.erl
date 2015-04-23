@@ -31,6 +31,7 @@ start_vnode(I) ->
 init([Partition]) ->
 	FileName = filename:join(["dtimer_data", integer_to_list(Partition), "main.sqlite"]),
 	ok = filelib:ensure_dir(FileName),
+	ok = file:delete(FileName),
 	{ok, Pid} = sqlite3:open(anonymous, [{file, FileName }]),
 	ok = sqlite3:create_table(Pid, timer, [
 		{id, integer, [{primary_key, [asc, autoincrement]}]},
@@ -44,21 +45,22 @@ handle_command(ping, _Sender, State) ->
 	{reply, {pong, State#state.partition}, State};
 handle_command({add_timer, Name, Interval}, _Sender, #state{db = Db} = State) ->
 	{rowid, Id} = sqlite3:write(Db, timer, [{name, Name}, {interval, Interval}]),
-	erlang:send_after(Interval, self(), {tick, {Id, Name}}),
+	WaitTime = random:uniform(Interval),
+	erlang:send_after(WaitTime, self(), {tick, {Id, Name}}),
 	{reply, {added, State#state.partition}, State};
 handle_command(Message, _Sender, State) ->
     ?PRINT({unhandled_command, Message}),
     {noreply, State}.
 
 handle_info({tick, {Id, Name}}, #state{db = Db, partition=Partition } = State) ->
-	?PRINT({ticked, Id, Name}),
+%	?PRINT({ticked, Id, Name}),
 	[{columns, _}, {rows, [{Id, Name, Interval}]}] = sqlite3:read(Db, timer, {id, Id}),
 	erlang:send_after(Interval, self(), {tick, {Id, Name}}),
-	{ok, Primary} = dtimer:find_primary({timer, Name}),
+	{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 	ThisVnode = {Partition, node()},
 	case Primary of
-		ThisVnode  -> ?PRINT({primary, Name});
-		OtherVnode -> ?PRINT({secondary, Name, OtherVnode})
+		ThisVnode  -> io:format("~p~n", [{primary, Name}]);
+		OtherVnode -> io:format("~p~n", [{secondary, Name, OtherVnode}])
 	end,
 	{ok, State};
 handle_info(Info, State) ->
