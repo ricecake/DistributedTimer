@@ -37,6 +37,6 @@ replicated(Value, Key) ->
 
 find_primary(Key) ->
     DocIdx = riak_core_util:chash_key(Key),
-    PrefList = riak_core_apl:get_primary_apl(DocIdx, 1, dtimer),
-    [{IndexNode, _Type}] = PrefList,
+    PrefList = riak_core_apl:get_apl(DocIdx, 1, dtimer)
+    [IndexNode] = PrefList,
     {ok, IndexNode}.
