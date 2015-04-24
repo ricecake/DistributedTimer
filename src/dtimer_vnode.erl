@@ -1,5 +1,7 @@
 -module(dtimer_vnode).
 -behaviour(riak_core_vnode).
+
+-include_lib("riak_core/include/riak_core_vnode.hrl").
 -include("dtimer.hrl").
 
 -export([start_vnode/1,
@@ -30,9 +32,13 @@ start_vnode(I) ->
 
 init([Partition]) ->
 	FileName = filename:join(["dtimer_data", integer_to_list(Partition)]),
-	ok = del_dir(FileName),
 	ok = filelib:ensure_dir(FileName),
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
+	eleveldb:fold(Ref, fun({_, Value}, _) -> 
+		{Name, Interval} = binary_to_term(Value),
+		WaitTime = random:uniform(Interval),
+		erlang:send_after(WaitTime, self(), {tick, Name})
+	end, ok, []),
 	{ok, #state { partition=Partition, db=Ref, file=FileName }}.
 
 %% Sample command: respond to a ping
@@ -52,16 +58,18 @@ handle_info({tick, Name}, #state{db = Db, partition=Partition } = State) ->
 	{ok, {Name, Interval}} = fetch(Db, Name),
 	erlang:send_after(Interval, self(), {tick, Name}),
 	{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
-	ThisVnode = {Partition, node()},
-	case Primary of
-		ThisVnode  -> io:format("~p~n", [{primary, Name}]);
-		OtherVnode -> io:format("~p~n", [{secondary, Name, OtherVnode}])
+	case node() of
+		Primary    -> io:format("~p~n", [{primary, Name}]);
+		OtherVnode -> io:format("~p~n", [{secondary, Name, OtherVnode, Primary}])
 	end,
 	{ok, State};
 handle_info(Info, State) ->
 	?PRINT({unhandled_message, Info}),
 	{ok, State}.
 
+handle_handoff_command(?FOLD_REQ{foldfun=Fun, acc0=Acc0}=Msg, _Sender, #state{db=Db} = State) ->
+	?PRINT({handoff, Msg}),
+	{reply, eleveldb:fold(Db, Fun, Acc0, []), State};
 handle_handoff_command(_Message, _Sender, State) ->
     {noreply, State}.
 
@@ -74,14 +82,18 @@ handoff_cancelled(State) ->
 handoff_finished(_TargetNode, State) ->
     {ok, State}.
 
-handle_handoff_data(_Data, State) ->
-    {reply, ok, State}.
+handle_handoff_data(BinData, #state{db=Db} = State) ->
+	{_Key, Value} = binary_to_term(BinData),
+	{Name, Interval} = binary_to_term(Value),
+	ok = store(Db, Name, {Name, Interval}),
+	WaitTime = random:uniform(Interval),
+	erlang:send_after(WaitTime, self(), {tick, Name}),
+	{reply, ok, State}.
 
-encode_handoff_item(_ObjectName, _ObjectValue) ->
-    <<>>.
+encode_handoff_item(Key, Value) ->
+	term_to_binary({Key, Value}).
 
-is_empty(State) ->
-    {true, State}.
+is_empty(#state{db=Db} = State) -> {eleveldb:is_empty(Db), State}.
 
 delete(State) ->
 	ok = del_dir(State#state.file),
@@ -93,8 +105,7 @@ handle_coverage(_Req, _KeySpaces, _Sender, State) ->
 handle_exit(_Pid, _Reason, State) ->
     {noreply, State}.
 
-terminate(Reason, _State) ->
-	?PRINT(Reason),
+terminate(_Reason, _State) ->
 	ok.
 
 del_dir(Dir) ->
