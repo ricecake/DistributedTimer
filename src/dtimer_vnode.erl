@@ -58,9 +58,10 @@ handle_info({tick, Name}, #state{db = Db, partition=Partition } = State) ->
 	{ok, {Name, Interval}} = fetch(Db, Name),
 	erlang:send_after(Interval, self(), {tick, Name}),
 	{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
-	case node() of
-		Primary    -> io:format("~p~n", [{primary, Name}]);
-		OtherVnode -> io:format("~p~n", [{secondary, Name, OtherVnode, Primary}])
+	ThisVnode = {Partition, node()},
+	ok = case Primary of
+		ThisVnode  -> ok;
+		_OtherVnode -> ok
 	end,
 	{ok, State};
 handle_info(Info, State) ->
@@ -96,8 +97,14 @@ encode_handoff_item(Key, Value) ->
 is_empty(#state{db=Db} = State) -> {eleveldb:is_empty(Db), State}.
 
 delete(State) ->
-	ok = del_dir(State#state.file),
-	{ok, State}.
+	?PRINT({deleting, State#state.partition}),
+	eleveldb:close(State#state.db),
+	case eleveldb:destroy(State#state.file, []) of
+		ok ->
+			{ok, State#state{db = undefined}};
+		{error, Reason} ->
+			{error, Reason, State}
+	end.
 
 handle_coverage(_Req, _KeySpaces, _Sender, State) ->
     {stop, not_implemented, State}.
@@ -105,7 +112,13 @@ handle_coverage(_Req, _KeySpaces, _Sender, State) ->
 handle_exit(_Pid, _Reason, State) ->
     {noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{db=Db} = State) ->
+	?PRINT({terminating, State#state.partition}),
+	case Db of
+		undefined -> ok;
+		_         ->
+			evleveldb:close(Db)
+	end,
 	ok.
 
 del_dir(Dir) ->
