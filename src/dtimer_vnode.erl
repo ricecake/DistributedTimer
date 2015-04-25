@@ -54,7 +54,6 @@ handle_command(Message, _Sender, State) ->
     {noreply, State}.
 
 handle_info({tick, Name}, #state{db = Db, partition=Partition } = State) ->
-%	?PRINT({ticked, Id, Name}),
 	{ok, {Name, Interval}} = fetch(Db, Name),
 	erlang:send_after(Interval, self(), {tick, Name}),
 	{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
@@ -69,7 +68,6 @@ handle_info(Info, State) ->
 	{ok, State}.
 
 handle_handoff_command(?FOLD_REQ{foldfun=Fun, acc0=Acc0}=Msg, _Sender, #state{db=Db} = State) ->
-	?PRINT({handoff, Msg}),
 	{reply, eleveldb:fold(Db, Fun, Acc0, []), State};
 handle_handoff_command(_Message, _Sender, State) ->
     {noreply, State}.
@@ -97,7 +95,6 @@ encode_handoff_item(Key, Value) ->
 is_empty(#state{db=Db} = State) -> {eleveldb:is_empty(Db), State}.
 
 delete(State) ->
-	?PRINT({deleting, State#state.partition}),
 	eleveldb:close(State#state.db),
 	case eleveldb:destroy(State#state.file, []) of
 		ok ->
@@ -113,7 +110,6 @@ handle_exit(_Pid, _Reason, State) ->
     {noreply, State}.
 
 terminate(_Reason, #state{db=Db} = State) ->
-	?PRINT({terminating, State#state.partition}),
 	case Db of
 		undefined -> ok;
 		_         ->
