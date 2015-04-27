@@ -34,7 +34,8 @@ init([Partition]) ->
 	FileName = filename:join(["dtimer_data", integer_to_list(Partition)]),
 	ok = filelib:ensure_dir(FileName),
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
-	Timer = dtimer_watchbin:new(5),
+	hackney_pool:start_pool(Partition, [{pool_size, 2 * erlang:system_info(schedulers)}]),
+	Timer = dtimer_watchbin:new(1000),
 	FilledTimer = eleveldb:fold(Ref, fun({_, Value}, WatchBin) -> 
 		{Name, Interval} = binary_to_term(Value),
 		{ok, NewTimer} = dtimer_watchbin:add(WatchBin, Interval, Name, true),
@@ -59,7 +60,7 @@ handle_info({tick, TimeOut}, #state{db = Db, partition=Partition, time=Timer} = 
 		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 		ThisVnode = {Partition, node()},
 		ok = case Primary of
-			ThisVnode  -> ok;
+			ThisVnode  -> dtimer_checker:run(Partition, head, []);
 			_OtherVnode -> ok
 		end
 	end,
@@ -110,39 +111,14 @@ handle_coverage(_Req, _KeySpaces, _Sender, State) ->
 handle_exit(_Pid, _Reason, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{db=Db}) ->
+terminate(_Reason, #state{db=Db, partition=Partition}) ->
 	case Db of
 		undefined -> ok;
 		_         ->
 			eleveldb:close(Db)
 	end,
+	hackney_pool:stop_pool(Partition),
 	ok.
-
-del_dir(Dir) ->
-	case filelib:is_dir(Dir) of
-		true -> lists:foreach(fun(D) ->
-				ok = file:del_dir(D)
-			end, del_all_files([Dir], []));
-		false -> ok
-	end.
- 
-del_all_files([], EmptyDirs) ->
-   EmptyDirs;
-del_all_files([Dir | T], EmptyDirs) ->
-   {ok, FilesInDir} = file:list_dir(Dir),
-   {Files, Dirs} = lists:foldl(fun(F, {Fs, Ds}) ->
-                                  Path = Dir ++ "/" ++ F,
-                                  case filelib:is_dir(Path) of
-                                     true ->
-                                          {Fs, [Path | Ds]};
-                                     false ->
-                                          {[Path | Fs], Ds}
-                                  end
-                               end, {[],[]}, FilesInDir),
-   lists:foreach(fun(F) ->
-                         ok = file:delete(F)
-                 end, Files),
-   del_all_files(T ++ Dirs, [Dir | EmptyDirs]).
 
 store(Db, Key, Value) -> eleveldb:put(Db, term_to_binary(Key), term_to_binary(Value), []).
 fetch(Db, Key)        ->
