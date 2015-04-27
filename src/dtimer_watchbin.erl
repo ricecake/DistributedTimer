@@ -16,18 +16,18 @@
 new(BucketSize) -> {watchbin, BucketSize, maps:new()}.
 
 add(Struct, Interval, Value) -> add(Struct, Interval, Value, false).
-add({watchbin, BucketSize, Map}, Interval, Value, Jitter) ->
+add({watchbin, BucketSize, Map}, Interval, Value, Jitter) when is_integer(Interval) ->
 	WaitTime = if
 		Jitter -> random:uniform(Interval);
 		not Jitter -> Interval
 	end,
 	Now = timestamp(),
-	Timeout = max(Now+BucketSize, BucketSize*round((Now+WaitTime)/BucketSize)),
+	Timeout = max(round(Now+BucketSize), BucketSize*round((Now+WaitTime)/BucketSize)),
 	NewValue = case maps:find(Timeout, Map) of
 		{ok, List} when is_list(List) ->
 					[{Interval, Value}| List];
 		error                         ->
-					erlang:send_after(timer:seconds(WaitTime), self(), {tick, Timeout}),
+					erlang:send_after(WaitTime, self(), {tick, Timeout}),
 					[{Interval, Value}]
 	end,
 	{ok, {watchbin, BucketSize, maps:put(Timeout, NewValue, Map)}}.
@@ -40,6 +40,6 @@ tick({watchbin, BucketSize, Map}, Key, CallBack) ->
 	end, {watchbin, BucketSize, maps:remove(Key, Map)}, maps:get(Key, Map))}.
 
 timestamp() -> 
-	{Mega, Secs, _} = os:timestamp(),
-	Mega*1000*1000 + Secs.
+	{Mega, Secs, Micro} = os:timestamp(),
+	Mega*1000*1000*1000 + Secs * 1000 + (Micro / 1000).
 
