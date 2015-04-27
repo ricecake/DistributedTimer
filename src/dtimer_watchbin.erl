@@ -33,10 +33,11 @@ add({watchbin, BucketSize, Map}, Interval, Value, Jitter) ->
 	{ok, {watchbin, BucketSize, maps:put(Timeout, NewValue, Map)}}.
 
 tick({watchbin, BucketSize, Map}, Key, CallBack) ->
-	lists:foldl(fun({Int, Data}, Struct) ->
+	{ok, lists:foldl(fun({Int, Data}, Struct) ->
 		CallBack(Data),
-		add(Struct, Int, Data)
-	end, {watchbin, BucketSize, maps:remove(Key, Map)}, maps:get(Key, Map)).
+		{ok, NewSelf} = add(Struct, Int, Data),
+		NewSelf
+	end, {watchbin, BucketSize, maps:remove(Key, Map)}, maps:get(Key, Map))}.
 
 timestamp() -> 
 	{Mega, Secs, _} = os:timestamp(),
