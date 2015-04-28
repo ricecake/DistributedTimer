@@ -1,18 +1,18 @@
 -module(dtimer_checker).
 
 -export([
-	run/3,
-	start_link/3,
-	process/3
+	run/2,
+	start_link/2,
+	process/2
 ]).
 
-run(Partition, Type, Args) ->
-	{ok, _} = supervisor:start_child(dtimer_checker_sup, [Partition, Type, Args]),
+run(Type, Args) ->
+	{ok, _} = supervisor:start_child(dtimer_checker_sup, [Type, Args]),
 	ok.
 
-start_link(Partition, Type, Args) ->
-	{ok, erlang:spawn_link(?MODULE, process, [Partition, Type, Args])}.
+start_link(Type, Args) ->
+	{ok, erlang:spawn_link(?MODULE, process, [Type, Args])}.
 
-process(Pool, head, _Args) ->
-	hackney:head("fwb.tfm.nu", [], <<>>, [{pool, Pool}]),
+process(head, _Args) ->
+	hackney:head("check.tfm.nu", [], <<>>, [{pool, dtimer}]),
 	exit(normal).

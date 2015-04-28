@@ -34,7 +34,6 @@ init([Partition]) ->
 	FileName = filename:join(["dtimer_data", integer_to_list(Partition)]),
 	ok = filelib:ensure_dir(FileName),
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
-	hackney_pool:start_pool(Partition, [{pool_size, 2 * erlang:system_info(schedulers)}]),
 	Timer = dtimer_watchbin:new(1000),
 	FilledTimer = eleveldb:fold(Ref, fun({_, Value}, WatchBin) -> 
 		{Name, Interval} = binary_to_term(Value),
@@ -60,7 +59,7 @@ handle_info({tick, TimeOut}, #state{db = Db, partition=Partition, time=Timer} = 
 		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 		ThisVnode = {Partition, node()},
 		ok = case Primary of
-			ThisVnode  -> dtimer_checker:run(Partition, head, []);
+			ThisVnode  -> dtimer_checker:run(head, []);
 			_OtherVnode -> ok
 		end
 	end,
