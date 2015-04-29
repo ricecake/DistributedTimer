@@ -14,5 +14,5 @@ start_link(Type, Args) ->
 	{ok, erlang:spawn_link(?MODULE, process, [Type, Args])}.
 
 process(head, _Args) ->
-	hackney:head("check.tfm.nu", [], <<>>, [{pool, dtimer}]),
+	hackney:head("localhost", [], <<>>, [{pool, dtimer}]),
 	exit(normal).

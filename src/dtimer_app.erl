@@ -12,7 +12,7 @@
 start(_StartType, _StartArgs) ->
 	case dtimer_sup:start_link() of
 		{ok, Pid} ->
-			ok = hackney_pool:start_pool(dtimer, [{pool_size, 150 * erlang:system_info(schedulers)}]),
+			ok = hackney_pool:start_pool(dtimer, [{pool_size, 512 * erlang:system_info(schedulers)}]),
 
 			ok = riak_core:register([{vnode_module, dtimer_vnode}]),
 
