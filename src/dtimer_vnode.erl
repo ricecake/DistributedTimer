@@ -36,7 +36,7 @@ init([Partition]) ->
 
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
 
-	CallBack = fun(Name) ->
+	CallBack = fun(Name) -> spawn(fun()->
 		%{ok, {Name, _Interval}} = fetch(Db, Name),
 		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 		ThisVnode = {Partition, node()},
@@ -44,8 +44,8 @@ init([Partition]) ->
 			ThisVnode  -> dtimer_checker:run(head, []);
 			_OtherVnode -> ok
 		end
-	end,
-	{ok, Timer} = watchbin:new(1000, CallBack),
+	end) end,
+	{ok, Timer} = watchbin:new(1, CallBack),
 	
 	eleveldb:fold(Ref, fun({_, Value}, _) -> 
 		{Name, Interval} = binary_to_term(Value),
