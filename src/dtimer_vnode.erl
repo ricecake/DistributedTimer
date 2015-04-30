@@ -33,27 +33,9 @@ start_vnode(I) ->
 init([Partition]) ->
 	FileName = filename:join(["dtimer_data", integer_to_list(Partition)]),
 	ok = filelib:ensure_dir(FileName),
+
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
-	Timer = dtimer_watchbin:new(1000),
-	FilledTimer = eleveldb:fold(Ref, fun({_, Value}, WatchBin) -> 
-		{Name, Interval} = binary_to_term(Value),
-		{ok, NewTimer} = dtimer_watchbin:add(WatchBin, Interval, Name, true),
-		NewTimer
-	end, Timer, []),
-	{ok, #state { partition=Partition, db=Ref, file=FileName, time=FilledTimer }}.
 
-%% Sample command: respond to a ping
-handle_command(ping, _Sender, State) ->
-	{reply, {pong, State#state.partition}, State};
-handle_command({RefId, {add_timer, Name, Interval}}, _Sender, #state{db = Db, time=Timer} = State) ->
-	ok = store(Db, Name, {Name, Interval}),
-	{ok, NewTimer} = dtimer_watchbin:add(Timer, Interval, Name, true),
-	{reply, {RefId, {added, State#state.partition}}, State#state{time=NewTimer}};
-handle_command(Message, _Sender, State) ->
-    ?PRINT({unhandled_command, Message}),
-    {noreply, State}.
-
-handle_info({tick, TimeOut}, #state{db = Db, partition=Partition, time=Timer} = State) ->
 	CallBack = fun(Name) ->
 		%{ok, {Name, _Interval}} = fetch(Db, Name),
 		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
@@ -63,8 +45,25 @@ handle_info({tick, TimeOut}, #state{db = Db, partition=Partition, time=Timer} = 
 			_OtherVnode -> ok
 		end
 	end,
-	{ok, NewTimer} = dtimer_watchbin:tick(Timer, TimeOut, CallBack),
-	{ok, State#state{time=NewTimer}};
+	{ok, Timer} = watchbin:new(1000, CallBack),
+	
+	eleveldb:fold(Ref, fun({_, Value}, _) -> 
+		{Name, Interval} = binary_to_term(Value),
+		{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter])
+	end, ok, []),
+	{ok, #state { partition=Partition, db=Ref, file=FileName, time=Timer }}.
+
+%% Sample command: respond to a ping
+handle_command(ping, _Sender, State) ->
+	{reply, {pong, State#state.partition}, State};
+handle_command({RefId, {add_timer, Name, Interval}}, _Sender, #state{db = Db, time=Timer} = State) ->
+	ok = store(Db, Name, {Name, Interval}),
+	{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter]),
+	{reply, {RefId, {added, State#state.partition}}, State};
+handle_command(Message, _Sender, State) ->
+    ?PRINT({unhandled_command, Message}),
+    {noreply, State}.
+
 handle_info(Info, State) ->
 	?PRINT({unhandled_message, Info}),
 	{ok, State}.
@@ -87,8 +86,8 @@ handle_handoff_data(BinData, #state{db=Db, time=Timer} = State) ->
 	{_Key, Value} = binary_to_term(BinData),
 	{Name, Interval} = binary_to_term(Value),
 	ok = store(Db, Name, {Name, Interval}),
-	{ok, NewTimer} = dtimer_watchbin:add(Timer, Interval, Name, true),
-	{reply, ok, State#state{time=NewTimer}}.
+	{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter]),
+	{reply, ok, State}.
 
 encode_handoff_item(Key, Value) ->
 	term_to_binary({Key, Value}).
