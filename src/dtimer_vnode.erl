@@ -55,7 +55,7 @@ handle_command(Message, _Sender, State) ->
 
 handle_info({tick, TimeOut}, #state{db = Db, partition=Partition, time=Timer} = State) ->
 	CallBack = fun(Name) ->
-		{ok, {Name, _Interval}} = fetch(Db, Name),
+		%{ok, {Name, _Interval}} = fetch(Db, Name),
 		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 		ThisVnode = {Partition, node()},
 		ok = case Primary of

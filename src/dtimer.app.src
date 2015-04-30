@@ -9,7 +9,8 @@
                   stdlib,
                   riak_core,
                   hackney,
-                  jobs
+                  jobs,
+		  watchbin
                  ]},
   {mod, { dtimer_app, []}},
   {env, []}
