@@ -36,15 +36,15 @@ init([Partition]) ->
 
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
 
-	CallBack = fun(Name) -> spawn(fun()->
+	CallBack = fun(Name) -> %spawn(fun()->
 		%{ok, {Name, _Interval}} = fetch(Db, Name),
 		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 		ThisVnode = {Partition, node()},
 		ok = case Primary of
-			ThisVnode  -> dtimer_checker:run(head, []);
+			ThisVnode  -> jobs:run(http_requests, fun()-> dtimer_checker:run(head, []) end);
 			_OtherVnode -> ok
 		end
-	end) end,
+	end,
 	{ok, Timer} = watchbin:new(1, CallBack),
 	
 	eleveldb:fold(Ref, fun({_, Value}, _) -> 
