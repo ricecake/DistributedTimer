@@ -41,11 +41,11 @@ init([Partition]) ->
 		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 		ThisVnode = {Partition, node()},
 		ok = case Primary of
-			ThisVnode  -> jobs:run(http_requests, fun()-> dtimer_checker:run(head, []) end);
+			ThisVnode  -> spawn(jobs, run, [http_requests, fun()-> dtimer_checker:process(head, []) end]), ok;
 			_OtherVnode -> ok
 		end
 	end,
-	{ok, Timer} = watchbin:new(1, CallBack),
+	{ok, Timer} = watchbin:new(2500, CallBack),
 	
 	eleveldb:fold(Ref, fun({_, Value}, _) -> 
 		{Name, Interval} = binary_to_term(Value),
