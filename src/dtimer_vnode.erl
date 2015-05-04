@@ -37,7 +37,7 @@ init([Partition]) ->
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
 
 	CallBack = fun(Name) ->
-		{ok, {_Interval, Data}} = fetch(Db, Name),
+		{ok, {_Interval, Data}} = fetch(Ref, Name),
 		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 		ThisVnode = {Partition, node()},
 		ok = case Primary of
