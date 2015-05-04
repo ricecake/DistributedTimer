@@ -36,19 +36,19 @@ init([Partition]) ->
 
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
 
-	CallBack = fun(Name) -> spawn(fun()->
-		%{ok, {Name, _Interval}} = fetch(Db, Name),
+	CallBack = fun(Name) ->
+		{ok, {_Interval, Data}} = fetch(Db, Name),
 		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 		ThisVnode = {Partition, node()},
 		ok = case Primary of
-			ThisVnode  -> jobs:run(http_requests, fun()-> dtimer_checker:process(head, []) end);
+			ThisVnode  -> dtimer_checker:process(Name, Data);
 			_OtherVnode -> ok
 		end
-		end) end,
+	end,
 	{ok, Timer} = watchbin:new(2500, CallBack),
 	
-	eleveldb:fold(Ref, fun({_, Value}, _) -> 
-		{Name, Interval} = binary_to_term(Value),
+	eleveldb:fold(Ref, fun({Name, Value}, _) -> 
+		{Interval, _Data} = binary_to_term(Value),
 		{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter])
 	end, ok, []),
 	{ok, #state { partition=Partition, db=Ref, file=FileName, time=Timer }}.
@@ -56,8 +56,8 @@ init([Partition]) ->
 %% Sample command: respond to a ping
 handle_command(ping, _Sender, State) ->
 	{reply, {pong, State#state.partition}, State};
-handle_command({RefId, {add_timer, Name, Interval}}, _Sender, #state{db = Db, time=Timer} = State) ->
-	ok = store(Db, Name, {Name, Interval}),
+handle_command({RefId, {add_timer, Name, Interval, Data}}, _Sender, #state{db = Db, time=Timer} = State) ->
+	ok = store(Db, Name, {Interval, Data}),
 	{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter]),
 	{reply, {RefId, {added, State#state.partition}}, State};
 handle_command(Message, _Sender, State) ->
@@ -83,9 +83,9 @@ handoff_finished(_TargetNode, State) ->
     {ok, State}.
 
 handle_handoff_data(BinData, #state{db=Db, time=Timer} = State) ->
-	{_Key, Value} = binary_to_term(BinData),
-	{Name, Interval} = binary_to_term(Value),
-	ok = store(Db, Name, {Name, Interval}),
+	{Name, Value} = binary_to_term(BinData),
+	{Interval, Data} = binary_to_term(Value),
+	ok = store(Db, Name, {Interval, Data}),
 	{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter]),
 	{reply, ok, State}.
 
@@ -109,13 +109,12 @@ handle_coverage(_Req, _KeySpaces, _Sender, State) ->
 handle_exit(_Pid, _Reason, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{db=Db, partition=Partition}) ->
+terminate(_Reason, #state{db=Db}) ->
 	case Db of
 		undefined -> ok;
 		_         ->
 			eleveldb:close(Db)
 	end,
-	hackney_pool:stop_pool(Partition),
 	ok.
 
 store(Db, Key, Value) -> eleveldb:put(Db, term_to_binary(Key), term_to_binary(Value), []).

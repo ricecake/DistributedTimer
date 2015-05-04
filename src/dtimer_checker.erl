@@ -1,17 +1,58 @@
 -module(dtimer_checker).
+-behaviour(gen_server).
+-define(SERVER, ?MODULE).
+
+%% ------------------------------------------------------------------
+%% API Function Exports
+%% ------------------------------------------------------------------
+
+-export([start_link/0]).
 
 -export([
-	run/2,
-	start_link/2,
 	process/2
 ]).
 
-run(Type, Args) ->
-	{ok, _} = supervisor:start_child(dtimer_checker_sup, [Type, Args]),
-	ok.
+%% ------------------------------------------------------------------
+%% gen_server Function Exports
+%% ------------------------------------------------------------------
 
-start_link(Type, Args) ->
-	{ok, erlang:spawn_link(?MODULE, process, [Type, Args])}.
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+         terminate/2, code_change/3]).
 
-process(head, _Args) ->
+%% ------------------------------------------------------------------
+%% API Function Definitions
+%% ------------------------------------------------------------------
+
+start_link() ->
+    gen_server:start_link(?MODULE, [], []).
+
+process(Name, _Args) ->
 	hackney:head("localhost", [], <<>>, [{pool, dtimer}]).
+
+%% ------------------------------------------------------------------
+%% gen_server Function Definitions
+%% ------------------------------------------------------------------
+
+init(Args) ->
+    {ok, Args}.
+
+handle_call(_Request, _From, State) ->
+    {reply, ok, State}.
+
+handle_cast(_Msg, State) ->
+    {noreply, State}.
+
+handle_info(_Info, State) ->
+    {noreply, State}.
+
+terminate(_Reason, _State) ->
+    ok.
+
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+%% ------------------------------------------------------------------
+%% Internal Function Definitions
+%% ------------------------------------------------------------------
+
+
