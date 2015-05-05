@@ -57,9 +57,14 @@ init([Partition]) ->
 handle_command(ping, _Sender, State) ->
 	{reply, {pong, State#state.partition}, State};
 handle_command({RefId, {add_timer, Name, Interval, Data}}, _Sender, #state{db = Db, time=Timer} = State) ->
-	ok = store(Db, Name, {Interval, Data}),
-	{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter]),
-	{reply, {RefId, {added, State#state.partition}}, State};
+	Exists = exists(Db, Name),
+	if
+		Exists -> ok;
+		not Exists ->
+			ok = store(Db, Name, {Interval, Data}),
+			{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter])
+	end,
+	{reply, {RefId, {timing, State#state.partition}}, State};
 handle_command(Message, _Sender, State) ->
     ?PRINT({unhandled_command, Message}),
     {noreply, State}.
