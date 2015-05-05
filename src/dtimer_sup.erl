@@ -29,11 +29,7 @@ init(_Args) ->
 	OpFSMs = {dtimer_op_fsm_sup,
 			{dtimer_op_fsm_sup, start_link, []},
 			permanent, infinity, supervisor, [dtimer_op_fsm_sup]},
-	CheckSup = {dtimer_checker_sup,
-			{dtimer_checker_sup, start_link, []},
-			permanent, infinity, supervisor, [dtimer_checker_sup]},
-
 
     { ok,
         { {one_for_one, 5, 10},
-          [VMaster, CoverageFSMs, OpFSMs, CheckSup]}}.
+          [VMaster, CoverageFSMs, OpFSMs]}}.

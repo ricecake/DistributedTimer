@@ -9,15 +9,10 @@
                   stdlib,
                   riak_core,
                   hackney,
-                  jobs,
+		  sidejob,
 		  watchbin
                  ]},
   {mod, { dtimer_app, []}},
   {env, [
-    { jobs, [
-      { queues, [
-        { http_requests, [ { max_size, 50000},  {regulators, [{ rate, [{limit, 5000}]}]}]}
-      ]}
-    ]}
   ]}
  ]}.

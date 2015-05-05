@@ -4,7 +4,7 @@
 
 -export([
          ping/0,
-	 add_timer/2,
+	 add_timer/3,
          find_primary/1
         ]).
 
@@ -19,8 +19,8 @@ ping() ->
 	{ok, IndexNode} = find_primary({<<"ping">>, term_to_binary(now())}),
 	riak_core_vnode_master:sync_spawn_command(IndexNode, ping, dtimer_vnode_master).
 
-add_timer(Name, Interval) when is_binary(Name), is_integer(Interval), Interval > 0 ->
-	replicated({add_timer, Name, Interval}, {<<"timer">>, Name}).
+add_timer(Name, Interval, Data) when is_binary(Name), is_integer(Interval), Interval > 0, is_map(Data) ->
+	replicated({add_timer, Name, Interval, Data}, {<<"timer">>, Name}).
 
 replicated(Value) -> replicated(Value, Value).
 replicated(Value, Key) ->

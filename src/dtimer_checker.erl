@@ -26,8 +26,11 @@
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
 
-process(Name, _Args) ->
-	hackney:head("localhost", [], <<>>, [{pool, dtimer}]).
+process(Name, Args) ->
+	case sidejob:cast(checkqueue, {process, Name, Args}) of
+		ok -> ok;
+		overload -> lager:warning("Overload!")
+	end.
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -39,6 +42,9 @@ init(Args) ->
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
+handle_cast({process, _Name, _Args}, State) ->
+	hackney:head("localhost", [], <<>>, [{pool, dtimer}]),
+	{noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
