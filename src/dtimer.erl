@@ -5,6 +5,7 @@
 -export([
          ping/0,
 	 add_timer/3,
+	 remove_timer/1,
          find_primary/1
         ]).
 
@@ -21,6 +22,9 @@ ping() ->
 
 add_timer(Name, Interval, Data) when is_binary(Name), is_integer(Interval), Interval > 0, is_map(Data) ->
 	replicated({add_timer, Name, Interval, Data}, {<<"timer">>, Name}).
+
+remove_timer(Name) when is_binary(Name) ->
+	replicated({remove_timer, Name}, {<<"timer">>, Name}).
 
 replicated(Value) -> replicated(Value, Value).
 replicated(Value, Key) ->

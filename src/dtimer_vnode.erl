@@ -37,12 +37,15 @@ init([Partition]) ->
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
 
 	CallBack = fun(Name) ->
-		{ok, {_Interval, Data}} = fetch(Ref, Name),
-		{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
-		ThisVnode = {Partition, node()},
-		ok = case Primary of
-			ThisVnode  -> dtimer_checker:process(Name, Data);
-			_OtherVnode -> ok
+		case getIfExists(Ref, Name) of
+			{ok, {_Interval, Data}} ->
+				{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
+				ThisVnode = {Partition, node()},
+				ok = case Primary of
+					ThisVnode  -> dtimer_checker:process(Name, Data);
+					_OtherVnode -> ok
+				end;
+			false -> ok
 		end
 	end,
 	{ok, Timer} = watchbin:new(2500, CallBack),
