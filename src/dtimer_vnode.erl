@@ -65,7 +65,7 @@ handle_command({RefId, {add_timer, Name, Interval, Data}}, _Sender, #state{db = 
 		Exists -> ok;
 		not Exists ->
 			ok = store(Db, Name, {Interval, Data}),
-			{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter])
+			{ok, _} = watchbin:start_timer(Timer, Interval, Name, [jitter, {name, Name}])
 	end,
 	{reply, {RefId, {timing, State#state.partition}}, State};
 handle_command(Message, _Sender, State) ->
