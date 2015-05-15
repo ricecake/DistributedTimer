@@ -28,8 +28,7 @@ remove_timer(Name) when is_binary(Name) ->
 
 replicated(Value) -> replicated(Value, Value).
 replicated(Value, Key) ->
-	N = 2,
-	W = 2,
+	{N, W} = getReplication(),
 	TimeOut = 10000,
 	
 	{ok, ReqId} = dtimer_op_fsm:op(N, W, Value, Key),
@@ -40,5 +39,9 @@ replicated(Value, Key) ->
 
 
 find_primary(Key) ->
-    DocIdx = riak_core_util:chash_key(Key),
-    {ok, riak_core_apl:first_up(DocIdx, dtimer)}.
+	{N, _} = getReplication(),
+	DocIdx = riak_core_util:chash_key(Key),
+	[Primary |Secondaries] = riak_core_apl:get_apl(DocIdx, N, dtimer),
+	{ok, Primary, Secondaries}.
+
+getReplication() -> {3, 2}.

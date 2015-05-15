@@ -39,7 +39,6 @@ init([Partition]) ->
 	CallBack = fun(Name) ->
 		case getIfExists(Ref, Name) of
 			{ok, {_Interval, Data}} ->
-				{ok, Primary} = dtimer:find_primary({<<"timer">>, Name}),
 				%% This is where I need to add a mech for passive anti-entropy
 				%% Basically just grab the primary, and also the appropriate
 				%% failover nodes, and then ensure that all the failover nodes
@@ -47,6 +46,7 @@ init([Partition]) ->
 				%% Should it be a task for the secondaries, or all nodes?
 				%% Additionally, need to then prune task if no longer a primary 
 				%% or secondary
+				{ok, Primary, Secondaries} = dtimer:find_primary({<<"timer">>, Name}),
 				ThisVnode = {Partition, node()},
 				ok = case Primary of
 					ThisVnode  -> dtimer_checker:process(Name, Data);
