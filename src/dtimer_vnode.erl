@@ -37,8 +37,8 @@ init([Partition]) ->
 	{ok, Ref} = eleveldb:open(FileName, [{create_if_missing, true}, {compression, true}, {use_bloomfilter, true}]),
 
 	CallBack = fun(Name) ->
-		case getIfExists(Ref, Name) of
-			{ok, {_Interval, Data}} ->
+		ok = case getIfExists(Ref, Name) of
+			{ok, {Interval, Data}} ->
 				%% This is where I need to add a mech for passive anti-entropy
 				%% Basically just grab the primary, and also the appropriate
 				%% failover nodes, and then ensure that all the failover nodes
@@ -49,8 +49,10 @@ init([Partition]) ->
 				{ok, Primary, Secondaries} = dtimer:find_primary({<<"timer">>, Name}),
 				ThisVnode = {Partition, node()},
 				ok = case Primary of
-					ThisVnode  -> dtimer_checker:process(Name, Data);
-					_OtherVnode -> ok
+					ThisVnode  ->
+						dtimer_checker:process(Name, Data),
+						antiEntropy({Name, Interval, Data}, Secondaries);
+					_OtherVnode -> antiEntropy({Name, Interval, Data}, [Primary | Secondaries])
 				end;
 			false -> ok
 		end
@@ -163,3 +165,4 @@ getIfExists(Db, Key) ->
 delete(Db, Key) ->
         eleveldb:delete(Db, term_to_binary(Key), []).
 
+antiEntropy({_Name, _Interval, _Data}, _Vnodes) -> ok.
