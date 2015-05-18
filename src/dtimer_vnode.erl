@@ -52,7 +52,7 @@ init([Partition]) ->
 					ThisVnode  ->
 						dtimer_checker:process(Name, Data),
 						antiEntropy({Name, Interval, Data}, Secondaries);
-					_OtherVnode -> antiEntropy({Name, Interval, Data}, [Primary | Secondaries])
+					_OtherVnode -> antiEntropy({Name, Interval, Data}, [Primary | [Node || Node <- Secondaries, Node /= ThisVnode]])
 				end;
 			false -> ok
 		end
