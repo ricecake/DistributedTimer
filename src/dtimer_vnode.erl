@@ -165,4 +165,6 @@ getIfExists(Db, Key) ->
 delete(Db, Key) ->
         eleveldb:delete(Db, term_to_binary(Key), []).
 
-antiEntropy({_Name, _Interval, _Data}, _Vnodes) -> ok.
+antiEntropy({Name, Interval, Data}, Vnodes) ->
+	ReqId = erlang:phash2(erlang:now()),
+	riak_core_vnode_master:command(Vnodes, {ReqId, {add_timer, Name, Interval, Data}}, dtimer_vnode_master).
