@@ -144,11 +144,6 @@ terminate(_Reason, #state{db=Db}) ->
 	ok.
 
 store(Db, Key, Value) -> eleveldb:put(Db, term_to_binary(Key), term_to_binary(Value), []).
-fetch(Db, Key)        ->
-        case eleveldb:get(Db, term_to_binary(Key), []) of
-                {ok, BinaryTerm} -> {ok, binary_to_term(BinaryTerm)};
-                not_found        -> throw({not_found, Key})
-        end.
 
 exists(Db, Key) ->
         case eleveldb:get(Db, term_to_binary(Key), []) of
