@@ -42,8 +42,9 @@ init(Args) ->
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
-handle_cast({process, _Name, _Args}, State) ->
-	hackney:head("localhost", [], <<>>, [{pool, dtimer}]),
+handle_cast({process, Name, _Args}, State) ->
+	Res = hackney:head("localhost", [], <<>>, [{pool, dtimer}]),
+	ok = report(Name, Res),
 	{noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -61,4 +62,5 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
+report(_Name, _Result) -> ok.
 
