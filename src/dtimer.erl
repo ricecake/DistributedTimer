@@ -29,7 +29,7 @@ remove_timer(Name) when is_binary(Name) ->
 replicated(Value) -> replicated(Value, Value).
 replicated(Value, Key) ->
 	{N, W} = getReplication(),
-	TimeOut = 10000,
+	TimeOut = timeout(),
 	
 	{ok, ReqId} = dtimer_op_fsm:op(N, W, Value, Key),
 	receive 
@@ -45,3 +45,4 @@ find_primary(Key) ->
 	{ok, Primary, Secondaries}.
 
 getReplication() -> {3, 2}.
+timeout() -> 5000.
